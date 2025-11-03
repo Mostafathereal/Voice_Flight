@@ -1,0 +1,7 @@
+
+
+mav_connect_baud_rate: 57600 
+mav_connect_port: "/dev/tty.usbserial-10"
+
+
+
