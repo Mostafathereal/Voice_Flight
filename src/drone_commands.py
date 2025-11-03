@@ -6,7 +6,7 @@ class Command(Enum):
     DISARM = "hey drone disarm"
     TAKE_OFF = "hey drone take off"
     LAND = "hey drone land"
-    HOVER = "hey drone hover"
+    # HOVER = "hey drone hover"
     MOVE_FORWARD = "hey drone move forward"
     MOVE_BACKWARD = "hey drone move backward"
     MOVE_LEFT = "hey drone move left"

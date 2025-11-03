@@ -38,7 +38,7 @@ def set_mode(master, mode_name="LOITER"):
     print(f"Mode set to {mode_name}")
 
 # ---------------- TAKEOFF / LAND ----------------
-def takeoff(master, altitude):
+def takeoff(master, altitude = 5.0):
     """Command takeoff to a specified altitude (in meters)."""
     print(f"Taking off to {altitude} meters...")
     master.mav.command_long_send(
@@ -76,90 +76,41 @@ def get_gps(master, timeout=5):
     print(f"GPS: lat={lat:.7f}, lon={lon:.7f}, alt={alt:.2f}")
     return lat, lon, alt
 
-# ---------------- MOVEMENT ----------------
-def move_local(master, x, y, z):
+def move_relative(master, x, y, z, vx=0, vy=0, vz=0):
     """
-    Move to position (x, y, z) in LOCAL_NED frame.
-    x=forward, y=right, z=down (positive down)
+    Move relative to the current position/orientation (in meters).
+    Positive X = forward, Positive Y = right, Positive Z = down.
     """
-    print(f"Moving to (x={x}, y={y}, z={z}) in LOCAL_NED frame...")
     master.mav.set_position_target_local_ned_send(
-        0,
-        master.target_system,
-        master.target_component,
-        mavutil.mavlink.MAV_FRAME_LOCAL_NED,
-        0b0000111111111000,  # bitmask: position only
-        x, y, z,
-        0, 0, 0,  # velocity
-        0, 0, 0,  # acceleration
-        0, 0      # yaw, yaw_rate
-    )
-
-
-def move_relative(master, dx=0, dy=0, dz=0):
-    """Move relative to current local position."""
-    msg = master.recv_match(type='LOCAL_POSITION_NED', blocking=True, timeout=3)
-    if not msg:
-        print("No local position data.")
-        return
-    pos = msg.to_dict()
-    x = pos['x'] + dx
-    y = pos['y'] + dy
-    z = pos['z'] + dz
-    print(f"Moving relative: Δx={dx}, Δy={dy}, Δz={dz}")
-    move_local(master, x, y, z)
-
-
-def send_ned_velocity(master, vx, vy, vz, duration=1):
-    """
-    Send velocity command in NED frame (m/s) for a given duration.
-    vx: forward (+x), vy: right (+y), vz: down (+z)
-    """
-    msg = master.mav.set_position_target_local_ned_encode(
-        0, master.target_system, master.target_component,
-        mavutil.mavlink.MAV_FRAME_LOCAL_NED,
-        0b0000111111000111,  # velocity only
-        0, 0, 0,
-        vx, vy, vz,
-        0, 0, 0, 0, 0)
+        int(time.time() * 1e3),        # time_boot_ms (ignored)
+        master.target_system,          # target_system
+        master.target_component,       # target_component
+        mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,  # relative to body frame
+        0b0000111111111000,            # type_mask (ignore velocity/accel/yaw) only considers position (and last 4 reserved bits)
+        x, y, z,                       # position (m)
+        vx, vy, vz,                    # velocity (m/s)
+        0, 0, 0,                       # acceleration (not used)
+        0, 0)                          # yaw, yaw_rate (not used)
     
-    for _ in range(duration):
-        master.mav.send(msg)
-        time.sleep(1)
+    print(f" ==== New move position ===\nx: {x:.2f}\ny: {y:.2f}\nz: {z:.2f}")
 
 
 # -------------------- COMMAND HANDLER -------------------- 
 def handle_command(master, cmd):
-    distance = 4  # meters
-    speed = 1     # m/s
-    duration = int(distance / speed)
 
-    if cmd == Command.MOVE_FORWARD:
-        print("⬆️ Moving forward 4 m")
-        send_ned_velocity(master, speed, 0, 0, duration)
-    elif cmd == Command.MOVE_BACKWARD:
-        print("⬇️ Moving backward 4 m")
-        send_ned_velocity(master, -speed, 0, 0, duration)
-    elif cmd == Command.MOVE_LEFT:
-        print("⬅️ Moving left 4 m")
-        send_ned_velocity(master, 0, -speed, 0, duration)
-    elif cmd == Command.MOVE_RIGHT:
-        print("➡️ Moving right 4 m")
-        send_ned_velocity(master, 0, speed, 0, duration)
-    elif cmd == Command.LAND:
-        print("🛬 Landing")
-        master.mav.command_long_send(
-            master.target_system, master.target_component,
-            mavutil.mavlink.MAV_CMD_NAV_LAND,
-            0, 0, 0, 0, 0, 0, 0, 0)
+    if cmd == Command.ARM:
+        arm(master)
+    elif cmd == Command.DISARM:
+        disarm(master)
     elif cmd == Command.TAKE_OFF:
-        print("🚁 Taking off to 3 m")
-        master.mav.command_long_send(
-            master.target_system, master.target_component,
-            mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
-            0, 0, 0, 0, 0, 0, 0, 3)
-    elif cmd == Command.HOVER:
-        print("🕹️ Hovering")
-        send_ned_velocity(master, 0, 0, 0, 2)
-    else:
-        print("❓ Unrecognized or unsupported command.")
+        takeoff(master)
+    elif cmd == Command.LAND:
+        land(master)
+    elif cmd == Command.MOVE_FORWARD:
+        move_relative(master, 5, 0, 0)   # move 5m forward
+    elif cmd == Command.MOVE_BACKWARD:
+        move_relative(master, -5, 0, 0)  # move 5m backward
+    elif cmd == Command.MOVE_RIGHT:
+        move_relative(master, 0, 5, 0)   # move 5m right
+    elif cmd == Command.MOVE_LEFT:
+        move_relative(master, 0, -5, 0)  # move 5m left
