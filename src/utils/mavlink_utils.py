@@ -42,10 +42,17 @@ def takeoff(master, altitude = 5.0):
     """Command takeoff to a specified altitude (in meters)."""
     print(f"Taking off to {altitude} meters...")
     master.mav.command_long_send(
-        master.target_system,
-        master.target_component,
-        mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
-        0, 0, 0, 0, 0, 0, 0, altitude
+    master.target_system,
+    master.target_component,
+    mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
+    0,  # Confirmation
+    0,  # Pitch (ignored for Copter takeoff)
+    0,  # Yaw (ignored for Copter takeoff)
+    0,  # Latitude (ignored for Copter takeoff)
+    0,  # Longitude (ignored for Copter takeoff)
+    0,  # Empty
+    0,
+    altitude  # Desired altitude in meters
     )
     time.sleep(8)
     print("Takeoff complete (estimated).")
@@ -103,7 +110,7 @@ def handle_command(master, cmd):
     elif cmd == Command.DISARM:
         disarm(master)
     elif cmd == Command.TAKE_OFF:
-        takeoff(master)
+        takeoff(master, altitude=5.0)
     elif cmd == Command.LAND:
         land(master)
     elif cmd == Command.MOVE_FORWARD:
